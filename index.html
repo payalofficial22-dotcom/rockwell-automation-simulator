@@ -1,1101 +1,910 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rockwell Automation Factory Simulator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            overflow: hidden;
-            height: 100vh;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-            gap: 20px;
-            padding: 20px;
-        }
-
-        .main-view {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .control-panel {
-            background: rgba(30, 60, 120, 0.9);
-            border: 2px solid #00d4ff;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        }
-
-        .control-panel h3 {
-            color: #00d4ff;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            background: linear-gradient(135deg, #00d4ff, #0099cc);
-            border: none;
-            color: #000;
-            padding: 12px 20px;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 0.95em;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .fault-button {
-            background: linear-gradient(135deg, #ff4444, #cc0000);
-            color: #fff;
-        }
-
-        .canvas-container {
-            flex: 1;
-            background: rgba(20, 40, 80, 0.8);
-            border: 2px solid #00d4ff;
-            border-radius: 10px;
-            padding: 20px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.1);
-        }
-
-        svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        .device {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .device:hover circle,
-        .device:hover rect {
-            filter: brightness(1.3);
-        }
-
-        .device text {
-            font-size: 12px;
-            text-anchor: middle;
-            pointer-events: none;
-        }
-
-        .info-panel {
-            background: rgba(30, 60, 120, 0.95);
-            border: 2px solid #00d4ff;
-            border-radius: 10px;
-            padding: 15px;
-            width: 350px;
-            max-height: 600px;
-            overflow-y: auto;
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        }
-
-        .info-panel h4 {
-            color: #00d4ff;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #00d4ff;
-            padding-bottom: 8px;
-        }
-
-        .info-item {
-            margin: 8px 0;
-            font-size: 0.9em;
-            line-height: 1.5;
-        }
-
-        .info-item strong {
-            color: #00ff88;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            margin-top: 5px;
-        }
-
-        .status-running {
-            background: #00ff00;
-            color: #000;
-        }
-
-        .status-stopped {
-            background: #cc0000;
-            color: #fff;
-        }
-
-        .status-idle {
-            background: #ffaa00;
-            color: #000;
-        }
-
-        .status-fault {
-            background: #ff4444;
-            color: #fff;
-            animation: pulse 0.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .message-log {
-            background: rgba(20, 40, 60, 0.8);
-            border: 1px solid #00d4ff;
-            border-radius: 5px;
-            padding: 10px;
-            height: 120px;
-            overflow-y: auto;
-            font-size: 0.85em;
-            margin-top: 10px;
-        }
-
-        .message-log div {
-            margin: 3px 0;
-            padding: 3px;
-            border-left: 3px solid #00ff88;
-            padding-left: 8px;
-        }
-
-        .message-log .error {
-            border-left-color: #ff4444;
-            color: #ff8888;
-        }
-
-        .packet-animation {
-            animation: travel 3s ease-in-out forwards;
-        }
-
-        @keyframes travel {
-            0% { opacity: 1; }
-            100% { opacity: 1; }
-        }
-
-        .arrow {
-            stroke: #00ff88;
-            stroke-width: 2;
-            fill: none;
-            marker-end: url(#arrowhead);
-        }
-
-        .arrow.feedback {
-            stroke: #00aaff;
-            marker-end: url(#arrowhead-blue);
-        }
-
-        .arrow.fault {
-            stroke: #ff4444;
-            marker-end: url(#arrowhead-red);
-        }
-
-        .arrow.disabled {
-            stroke: #666;
-            stroke-dasharray: 5,5;
-            marker-end: url(#arrowhead-gray);
-        }
-
-        .arrow.vlan-border {
-            stroke: #aa00ff;
-            stroke-dasharray: 8,4;
-        }
-
-        .packet {
-            fill: #00ff88;
-            r: 4;
-        }
-
-        .packet.feedback {
-            fill: #00aaff;
-        }
-
-        .packet.fault {
-            fill: #ff4444;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-
-        .tab-button {
-            padding: 8px 12px;
-            font-size: 0.9em;
-            background: rgba(0, 180, 200, 0.5);
-        }
-
-        .tab-button.active {
-            background: linear-gradient(135deg, #00d4ff, #0099cc);
-        }
-
-        .tab-content {
-            display: none;
-            margin-top: 10px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .network-table {
-            width: 100%;
-            font-size: 0.85em;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        .network-table th {
-            background: rgba(0, 212, 255, 0.2);
-            border: 1px solid #00d4ff;
-            padding: 5px;
-            text-align: left;
-        }
-
-        .network-table td {
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            padding: 5px;
-        }
-
-        .network-table tr:hover {
-            background: rgba(0, 212, 255, 0.1);
-        }
-
-        .flow-step {
-            background: rgba(0, 212, 255, 0.1);
-            border-left: 3px solid #00d4ff;
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 3px;
-        }
-
-        .flow-step.active {
-            background: rgba(0, 255, 136, 0.2);
-            border-left-color: #00ff88;
-        }
-
-        .flow-step.completed {
-            background: rgba(0, 255, 136, 0.1);
-            border-left-color: #00ff88;
-            opacity: 0.7;
-        }
-
-        .device-box {
-            fill: rgba(30, 60, 120, 0.8);
-            stroke: #00d4ff;
-            stroke-width: 2;
-        }
-
-        .device-box.active {
-            fill: rgba(0, 255, 136, 0.3);
-            stroke: #00ff88;
-            stroke-width: 3;
-        }
-
-        .device-label {
-            font-size: 13px;
-            font-weight: bold;
-            fill: #00d4ff;
-        }
-
-        .device-label.active {
-            fill: #00ff88;
-        }
-
-        .device-ip {
-            font-size: 10px;
-            fill: #00aaff;
-        }
-
-        .tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.95);
-            border: 1px solid #00d4ff;
-            border-radius: 5px;
-            padding: 8px;
-            font-size: 0.85em;
-            pointer-events: none;
-            z-index: 1000;
-            max-width: 250px;
-            display: none;
-        }
-
-        .tooltip.visible {
-            display: block;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border: 2px solid rgba(0, 212, 255, 0.3);
-            border-top: 2px solid #00d4ff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 5px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .right-sidebar {
-            width: 380px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow-y: auto;
-        }
-
-        .panel-title {
-            color: #00d4ff;
-            font-size: 1.1em;
-            font-weight: bold;
-            margin-bottom: 10px;
-            border-bottom: 2px solid #00d4ff;
-            padding-bottom: 8px;
-        }
-
-        .mode-indicator {
-            display: inline-block;
-            padding: 4px 8px;
-            background: linear-gradient(135deg, #00d4ff, #0099cc);
-            border-radius: 3px;
-            font-size: 0.85em;
-            font-weight: bold;
-        }
-
-        @media (max-width: 1400px) {
-            .container {
-                flex-direction: column;
-            }
-
-            .right-sidebar {
-                width: 100%;
-                max-height: 250px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rockwell Automation Simulator</title>
+  <style>
+    :root {
+      --bg-1: #08141c;
+      --bg-2: #0d1d2a;
+      --panel: rgba(18, 35, 49, 0.96);
+      --panel-alt: rgba(21, 46, 61, 0.96);
+      --line: #54c8ff;
+      --line-soft: rgba(84, 200, 255, 0.35);
+      --green: #3ad67d;
+      --green-soft: rgba(58, 214, 125, 0.15);
+      --blue: #5bb8ff;
+      --blue-soft: rgba(91, 184, 255, 0.15);
+      --red: #ff6060;
+      --red-soft: rgba(255, 96, 96, 0.15);
+      --amber: #ffb13d;
+      --amber-soft: rgba(255, 177, 61, 0.15);
+      --purple: #b88dff;
+      --text: #edf7ff;
+      --muted: #bbd6ea;
+      --shadow: rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(6,10,14,0.78), rgba(11,18,26,0.95)), linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+    }
+
+    body { min-height: 100vh; }
+
+    .dashboard {
+      max-width: 1550px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+      padding: 20px 24px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(16, 34, 46, 0.96), rgba(11, 24, 34, 0.96));
+      border-radius: 16px;
+      box-shadow: 0 10px 25px var(--shadow);
+    }
+
+    .brand small {
+      display: block;
+      color: var(--line);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.7rem;
+      margin-bottom: 6px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 2vw, 2.1rem);
+      letter-spacing: 0.04em;
+      color: #ebf7ff;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+
+    .primary { background: linear-gradient(180deg, #2fb5d9, #1a7fa5); }
+    .secondary { background: linear-gradient(180deg, #3a596d, #2b4453); }
+    .danger { background: linear-gradient(180deg, #ff6565, #d93d3d); }
+    .reset { background: linear-gradient(180deg, #4d606d, #304a57); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(320px, 390px);
+      gap: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(17, 35, 48, 0.98), rgba(10, 23, 33, 0.96));
+      border: 1px solid var(--line-soft);
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+    }
+
+    .diagram-panel { padding: 18px; min-height: 760px; }
+
+    .diagram {
+      width: 100%;
+      height: 720px;
+      border-radius: 14px;
+      background: radial-gradient(circle at top, rgba(17, 43, 59, 1), rgba(9, 20, 28, 1) 55%);
+      border: 1px solid var(--line-soft);
+    }
+
+    .device-box {
+      fill: rgba(20, 49, 64, 0.97);
+      stroke: rgba(84,200,255,0.82);
+      stroke-width: 2;
+      rx: 14;
+      transition: 0.2s ease;
+    }
+
+    .device-box.active {
+      stroke: var(--green);
+      stroke-width: 3;
+      filter: drop-shadow(0 0 12px rgba(58,214,125,0.5));
+    }
+
+    .device-label {
+      font-size: 18px;
+      fill: #effaff;
+      font-weight: 700;
+      text-anchor: middle;
+    }
+
+    .device-ip {
+      font-size: 11px;
+      fill: var(--muted);
+      text-anchor: middle;
+    }
+
+    .vlan-pill {
+      font-size: 12px;
+      fill: #8cd3ff;
+      text-anchor: middle;
+      font-weight: 700;
+    }
+
+    .panel-right { padding: 18px 18px 12px; }
+
+    .metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(84,200,255,0.2);
+      background: rgba(84,200,255,0.05);
+      padding: 9px 12px;
+    }
+
+    .metric .label { color: var(--muted); font-size: 0.9rem; }
+    .metric .value { font-size: 0.9rem; font-weight: 700; }
+
+    .status-ok { color: var(--green); }
+    .status-stop { color: var(--amber); }
+    .status-fault { color: var(--red); }
+    .status-idle { color: var(--amber); }
+
+    .section-title {
+      margin-top: 18px;
+      margin-bottom: 10px;
+      color: var(--line);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .log-box {
+      background: rgba(6, 15, 22, 0.95);
+      border: 1px solid rgba(84,200,255,0.2);
+      border-radius: 10px;
+      min-height: 150px;
+      max-height: 220px;
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .log-item {
+      border-left: 3px solid var(--line);
+      background: rgba(84,200,255,0.05);
+      padding: 7px 8px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .log-item.warn { border-left-color: var(--amber); }
+    .log-item.error { border-left-color: var(--red); }
+    .log-item.success { border-left-color: var(--green); }
+
+    .flow-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .flow-step {
+      padding: 8px 10px;
+      border-left: 3px solid rgba(84,200,255,0.4);
+      background: rgba(84,200,255,0.04);
+      color: var(--muted);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .flow-step.active {
+      background: rgba(58,214,125,0.12);
+      border-left-color: var(--green);
+      color: var(--text);
+    }
+
+    .flow-step.done {
+      background: rgba(58,214,125,0.08);
+      border-left-color: var(--green);
+      color: var(--green);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: rgba(84,200,255,0.08);
+      border: 1px solid rgba(84,200,255,0.2);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .tab-btn.active {
+      background: rgba(84,200,255,0.2);
+      border-color: rgba(84,200,255,0.5);
+    }
+
+    .tab-content {
+      display: none;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--muted);
+      padding-top: 6px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 0.8rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 6px 7px;
+      border: 1px solid rgba(84,200,255,0.2);
+    }
+
+    th {
+      background: rgba(84,200,255,0.08);
+      color: #d9f4ff;
+    }
+
+    .device-card {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid rgba(84,200,255,0.2);
+      background: rgba(84,200,255,0.04);
+      border-radius: 10px;
+    }
+
+    .device-card h3 {
+      margin: 0 0 8px;
+      color: #88dbff;
+      font-size: 1.15rem;
+    }
+
+    .belt-animation {
+      animation: none;
+    }
+
+    @keyframes beltMove {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(60px); }
+    }
+
+    @keyframes arrowFlow {
+      0% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: -20px; }
+    }
+
+    .arrow-animated {
+      animation: arrowFlow 1s linear infinite;
+      stroke-dasharray: 20, 10;
+    }
+
+    @media (max-width: 1150px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 700px) {
+      .topbar { flex-direction: column; align-items: flex-start; }
+      .controls { width: 100%; }
+      button { flex: 1; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="main-view">
-            <div class="control-panel">
-                <h3>🏭 ROCKWELL AUTOMATION FACTORY SIMULATOR</h3>
-                <div class="button-group">
-                    <button id="startBtn">▶ START MOTOR</button>
-                    <button id="stopBtn">⏹ STOP MOTOR</button>
-                    <button id="faultBtn" class="fault-button">⚠ INJECT FAULT</button>
-                    <button id="resetBtn">🔄 RESET</button>
-                    <button id="toggleInterviewBtn">📚 INTERVIEW MODE</button>
-                </div>
-                <div class="message-log" id="messageLog"></div>
-            </div>
+  <div class="dashboard">
+    <header class="topbar">
+      <div class="brand">
+        <small>Rockwell Automation</small>
+        <h1>Factory + Industrial Networking Simulator</h1>
+      </div>
 
-            <div class="canvas-container">
-                <svg id="networkDiagram" viewBox="0 0 1000 600">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#00ff88" />
-                        </marker>
-                        <marker id="arrowhead-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#00aaff" />
-                        </marker>
-                        <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#ff4444" />
-                        </marker>
-                        <marker id="arrowhead-gray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#666" />
-                        </marker>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                    </defs>
+      <div class="controls">
+        <button class="primary" id="startBtn">START MOTOR</button>
+        <button class="secondary" id="stopBtn">STOP MOTOR</button>
+        <button class="danger" id="faultBtn">FAULT</button>
+        <button class="reset" id="resetBtn">RESET</button>
+      </div>
+    </header>
 
-                    <!-- Title -->
-                    <text x="500" y="25" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">
-                        CONTROL NETWORK ARCHITECTURE - VLAN 10
-                    </text>
+    <main class="layout">
+      <section class="panel diagram-panel">
+        <svg class="diagram" viewBox="0 0 1200 720">
+          <defs>
+            <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#3ad67d"></polygon>
+            </marker>
+            <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#5bb8ff"></polygon>
+            </marker>
+            <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#ff6060"></polygon>
+            </marker>
+            <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#b88dff"></polygon>
+            </marker>
+            <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#ff9900"></polygon>
+            </marker>
+          </defs>
 
-                    <!-- SCADA/FactoryTalk Layer -->
-                    <rect x="350" y="50" width="300" height="50" rx="5" fill="rgba(100, 30, 150, 0.3)" stroke="#aa00ff" stroke-width="2"/>
-                    <text x="500" y="75" text-anchor="middle" fill="#aa00ff" font-size="14" font-weight="bold">FACTORYTALK / SCADA</text>
+          <g>
+            <rect x="380" y="10" width="440" height="90" rx="12" fill="rgba(30,60,80,0.95)" stroke="#b88dff" stroke-width="2"></rect>
+            <rect x="385" y="15" width="430" height="60" rx="10" fill="rgba(10,20,30,0.95)" stroke="rgba(184,141,255,0.5)"></rect>
+            <text x="600" y="32" text-anchor="middle" fill="#e6d3ff" font-size="16" font-weight="700">FACTORYTALK / SCADA</text>
+            <text x="600" y="55" text-anchor="middle" fill="#a4d3ff" font-size="12">Real-time Status Monitor</text>
+            <text id="factoryTalkStatus" x="600" y="72" text-anchor="middle" fill="#3ad67d" font-size="13" font-weight="700">MOTOR: STOPPED</text>
+          </g>
 
-                    <!-- HMI Box -->
-                    <g class="device" id="hmi-device">
-                        <rect class="device-box" x="80" y="150" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="140" y="180">HMI</text>
-                        <text class="device-ip" x="140" y="200">192.168.10.11</text>
-                        <text class="device-ip" x="140" y="215">VLAN: 10</text>
-                    </g>
+          <rect x="90" y="120" width="1020" height="32" rx="12" fill="rgba(84,200,255,0.08)" stroke="rgba(84,200,255,0.4)"></rect>
+          <text x="600" y="142" text-anchor="middle" class="vlan-pill">VLAN 10 - CONTROL NETWORK</text>
 
-                    <!-- Stratix Switch Box -->
-                    <g class="device" id="stratix-device">
-                        <rect class="device-box" x="380" y="150" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="440" y="180">STRATIX</text>
-                        <text class="device-ip" x="440" y="200">SWITCH</text>
-                        <text class="device-ip" x="440" y="215">Layer 2/3</text>
-                    </g>
+          <g class="device-group" data-device="hmi">
+            <rect x="90" y="200" width="150" height="140" rx="14" class="device-box"></rect>
+            <rect x="100" y="210" width="130" height="90" rx="8" fill="rgba(10,25,40,0.95)" stroke="rgba(58,214,125,0.4)" stroke-width="1"></rect>
+            <text x="165" y="230" text-anchor="middle" fill="#3ad67d" font-size="11" font-weight="700">HMI Display</text>
+            <text x="165" y="248" text-anchor="middle" fill="#8cd3ff" font-size="10">Status: IDLE</text>
+            <text x="165" y="263" text-anchor="middle" fill="#8cd3ff" font-size="10">Speed: 0 RPM</text>
+            <text x="165" y="278" text-anchor="middle" fill="#8cd3ff" font-size="10">Temp: 25°C</text>
 
-                    <!-- PLC Box -->
-                    <g class="device" id="plc-device">
-                        <rect class="device-box" x="680" y="150" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="740" y="180">PLC</text>
-                        <text class="device-ip" x="740" y="200">192.168.10.20</text>
-                        <text class="device-ip" x="740" y="215">VLAN: 10</text>
-                    </g>
+            <rect x="105" y="315" width="35" height="15" rx="3" fill="rgba(58,214,125,0.3)" stroke="#3ad67d" stroke-width="1"></rect>
+            <text x="122" y="324" text-anchor="middle" fill="#3ad67d" font-size="9" font-weight="700">START</text>
+            <rect x="150" y="315" width="35" height="15" rx="3" fill="rgba(255,96,96,0.3)" stroke="#ff6060" stroke-width="1"></rect>
+            <text x="167" y="324" text-anchor="middle" fill="#ff6060" font-size="9" font-weight="700">STOP</text>
 
-                    <!-- Drive Box -->
-                    <g class="device" id="drive-device">
-                        <rect class="device-box" x="80" y="320" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="140" y="350">DRIVE</text>
-                        <text class="device-ip" x="140" y="370">192.168.10.30</text>
-                        <text class="device-ip" x="140" y="385">VLAN: 10</text>
-                    </g>
+            <text x="165" y="342" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">192.168.10.11</text>
+            <text x="165" y="354" text-anchor="middle" fill="#8cd3ff" font-size="9">VLAN 10</text>
+          </g>
 
-                    <!-- Motor Box -->
-                    <g class="device" id="motor-device">
-                        <rect class="device-box" x="380" y="320" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="440" y="350">MOTOR</text>
-                        <text class="device-ip" x="440" y="370">192.168.10.40</text>
-                        <circle cx="440" cy="400" r="8" fill="#ff6600" id="motor-indicator"/>
-                    </g>
+          <g class="device-group" data-device="switch">
+            <rect x="510" y="200" width="150" height="140" rx="14" class="device-box"></rect>
+            <rect x="520" y="210" width="130" height="85" fill="rgba(30,40,50,0.6)" stroke="rgba(84,200,255,0.4)"></rect>
+            <circle cx="535" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="550" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="565" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="580" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="595" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="610" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="625" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="640" cy="230" r="4" fill="rgba(91,184,255,0.6)"></circle>
 
-                    <!-- Sensor Box -->
-                    <g class="device" id="sensor-device">
-                        <rect class="device-box" x="680" y="320" width="120" height="80" rx="5"/>
-                        <text class="device-label" x="740" y="350">SENSOR</text>
-                        <text class="device-ip" x="740" y="370">192.168.10.50</text>
-                        <text class="device-ip" x="740" y="385">I/O</text>
-                    </g>
+            <circle cx="535" cy="250" r="3" fill="#3ad67d" opacity="0.7"></circle>
+            <circle cx="550" cy="250" r="3" fill="#3ad67d" opacity="0.7"></circle>
+            <circle cx="565" cy="250" r="3" fill="#ffb13d" opacity="0.5"></circle>
+            <circle cx="580" cy="250" r="3" fill="rgba(150,150,150,0.3)"></circle>
+            <rect x="545" y="275" width="30" height="12" rx="2" fill="rgba(60,70,80,0.5)"></rect>
+            <text x="560" y="283" text-anchor="middle" fill="#b8d6ea" font-size="7" font-weight="700">FAN</text>
 
-                    <!-- Arrows -->
-                    <line class="arrow" x1="200" y1="190" x2="380" y2="190" id="arrow-hmi-switch"/>
-                    <line class="arrow" x1="500" y1="190" x2="680" y2="190" id="arrow-switch-plc"/>
-                    <line class="arrow" x1="140" y1="230" x2="140" y2="320" id="arrow-plc-drive"/>
-                    <line class="arrow" x1="380" y1="360" x2="200" y2="360" id="arrow-switch-motor"/>
-                    <line class="arrow feedback" x1="500" y1="360" x2="680" y2="360" id="arrow-motor-sensor"/>
-                    <line class="arrow feedback" x1="740" y1="230" x2="740" y2="150" id="arrow-feedback-scada"/>
+            <text x="585" y="337" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">STRATIX</text>
+            <text x="585" y="349" text-anchor="middle" fill="#8cd3ff" font-size="9">Layer 2 Switch</text>
+          </g>
 
-                    <!-- Status Indicators -->
-                    <circle cx="95" cy="165" r="4" fill="#ff6600" id="hmi-status"/>
-                    <circle cx="395" cy="165" r="4" fill="#ff6600" id="stratix-status"/>
-                    <circle cx="695" cy="165" r="4" fill="#ff6600" id="plc-status"/>
-                    <circle cx="95" cy="335" r="4" fill="#ff6600" id="drive-status"/>
-                    <circle cx="395" cy="335" r="4" fill="#ff6600" id="motor-status"/>
-                    <circle cx="695" cy="335" r="4" fill="#ff6600" id="sensor-status"/>
+          <g class="device-group" data-device="plc">
+            <rect x="930" y="200" width="150" height="140" rx="14" class="device-box"></rect>
+            <rect x="940" y="210" width="130" height="100" fill="rgba(30,50,65,0.6)" stroke="rgba(84,200,255,0.4)"></rect>
+            <circle cx="960" cy="230" r="5" fill="#3ad67d" opacity="0.8"></circle>
+            <text x="980" y="235" fill="#8cd3ff" font-size="9">RUN</text>
+            <circle cx="960" cy="250" r="5" fill="rgba(100,100,100,0.4)" opacity="0.6"></circle>
+            <text x="980" y="255" fill="#8cd3ff" font-size="9">ERROR</text>
+            <circle cx="975" cy="285" r="3" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="995" cy="285" r="3" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="1015" cy="285" r="3" fill="rgba(91,184,255,0.6)"></circle>
+            <circle cx="1035" cy="285" r="3" fill="rgba(91,184,255,0.6)"></circle>
+            <text x="1005" y="337" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">PLC</text>
+            <text x="1005" y="349" text-anchor="middle" fill="#8cd3ff" font-size="9">192.168.10.20</text>
+          </g>
 
-                    <!-- Communication Flow Summary -->
-                    <text x="500" y="520" text-anchor="middle" fill="#00aaff" font-size="12" font-weight="bold">
-                        PROTOCOL: EtherNet/IP | UNDERLYING: CIP | NETWORK: 192.168.10.0/24
-                    </text>
-                </svg>
-            </div>
+          <line x1="240" y1="270" x2="510" y2="270" stroke="rgba(58,214,125,0.6)" stroke-width="3" stroke-dasharray="5,3"></line>
+          <text x="375" y="260" text-anchor="middle" fill="#3ad67d" font-size="11" font-weight="700">EtherNet/IP</text>
+
+          <line x1="660" y1="270" x2="930" y2="270" stroke="rgba(58,214,125,0.6)" stroke-width="3" stroke-dasharray="5,3"></line>
+          <text x="795" y="260" text-anchor="middle" fill="#3ad67d" font-size="11" font-weight="700">CIP</text>
+
+          <line x1="1005" y1="340" x2="1005" y2="380" stroke="rgba(58,214,125,0.6)" stroke-width="3"></line>
+          <line x1="1005" y1="380" x2="240" y2="380" stroke="rgba(58,214,125,0.6)" stroke-width="3"></line>
+          <line x1="240" y1="380" x2="240" y2="420" stroke="rgba(58,214,125,0.6)" stroke-width="3"></line>
+
+          <g class="device-group" data-device="drive">
+            <rect x="160" y="420" width="160" height="140" rx="14" class="device-box"></rect>
+            <rect x="170" y="430" width="140" height="30" fill="rgba(60,80,100,0.6)" stroke="rgba(84,200,255,0.4)"></rect>
+            <line x1="180" y1="430" x2="180" y2="460" stroke="rgba(100,130,160,0.5)" stroke-width="2"></line>
+            <line x1="195" y1="430" x2="195" y2="460" stroke="rgba(100,130,160,0.5)" stroke-width="2"></line>
+            <line x1="210" y1="430" x2="210" y2="460" stroke="rgba(100,130,160,0.5)" stroke-width="2"></line>
+            <line x1="225" y1="430" x2="225" y2="460" stroke="rgba(100,130,160,0.5)" stroke-width="2"></line>
+            <line x1="240" y1="430" x2="240" y2="460" stroke="rgba(100,130,160,0.5)" stroke-width="2"></line>
+
+            <rect x="170" y="470" width="140" height="35" fill="rgba(40,50,60,0.6)" stroke="rgba(84,200,255,0.4)"></rect>
+            <text x="240" y="488" text-anchor="middle" fill="#8cd3ff" font-size="9">+24V  GND  OUT</text>
+            <circle cx="185" cy="440" r="4" fill="#3ad67d" opacity="0.8"></circle>
+            <text x="240" y="530" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">DRIVE</text>
+            <text x="240" y="542" text-anchor="middle" fill="#8cd3ff" font-size="9">192.168.10.30</text>
+          </g>
+
+          <g class="device-group" data-device="motor">
+            <rect x="530" y="420" width="140" height="140" rx="14" class="device-box"></rect>
+            <circle cx="600" cy="480" r="25" fill="rgba(50,70,90,0.7)" stroke="rgba(84,200,255,0.5)" stroke-width="2"></circle>
+
+            <ellipse cx="600" cy="540" rx="45" ry="12" fill="none" stroke="rgba(58,214,125,0.5)" stroke-width="3"></ellipse>
+
+            <g id="beltPackets" class="belt-animation">
+              <circle cx="555" cy="540" r="5" fill="#3ad67d" opacity="0.7"></circle>
+              <circle cx="600" cy="540" r="5" fill="#3ad67d" opacity="0.7"></circle>
+              <circle cx="645" cy="540" r="5" fill="#3ad67d" opacity="0.7"></circle>
+            </g>
+
+            <text x="600" y="590" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">MOTOR</text>
+            <text x="600" y="602" text-anchor="middle" fill="#8cd3ff" font-size="9">192.168.10.40</text>
+            <text id="motorStatusText" x="600" y="547" text-anchor="middle" fill="#ffb13d" font-size="9" font-weight="700">STOPPED</text>
+          </g>
+
+          <g class="device-group" data-device="sensor">
+            <rect x="890" y="420" width="140" height="140" rx="14" class="device-box"></rect>
+            <circle cx="960" cy="470" r="30" fill="rgba(50,70,90,0.7)" stroke="rgba(84,200,255,0.5)" stroke-width="2"></circle>
+            <circle cx="960" cy="470" r="20" fill="rgba(80,150,200,0.4)"></circle>
+            <circle cx="960" cy="470" r="15" fill="rgba(100,170,220,0.3)"></circle>
+
+            <line x1="960" y1="440" x2="960" y2="360" stroke="#ff9900" stroke-width="3" stroke-dasharray="4,2"></line>
+            <text x="975" y="390" fill="#ffb13d" font-size="10" font-weight="700">24V</text>
+
+            <circle cx="950" cy="520" r="3" fill="#ffb13d"></circle>
+            <circle cx="970" cy="520" r="3" fill="#ffb13d"></circle>
+            <text x="950" y="535" text-anchor="middle" fill="#8cd3ff" font-size="8">+24V</text>
+            <text x="970" y="535" text-anchor="middle" fill="#8cd3ff" font-size="8">GND</text>
+
+            <text x="960" y="590" text-anchor="middle" fill="#d9f4ff" font-size="10" font-weight="700">SENSOR</text>
+            <text x="960" y="602" text-anchor="middle" fill="#8cd3ff" font-size="9">192.168.10.50</text>
+          </g>
+
+          <line id="driveToMotorArrow" x1="320" y1="490" x2="530" y2="490" stroke="#3ad67d" stroke-width="2.5" stroke-dasharray="20,10" class="arrow-animated" opacity="0" marker-end="url(#arrowGreen)"></line>
+          <text id="driveToMotorLabel" x="425" y="475" text-anchor="middle" fill="#3ad67d" font-size="10" font-weight="700" opacity="0">Command</text>
+
+          <line id="motorToSensorArrow" x1="670" y1="520" x2="890" y2="520" stroke="#ff9900" stroke-width="2.5" stroke-dasharray="20,10" class="arrow-animated" opacity="0" marker-end="url(#arrowOrange)"></line>
+          <text id="motorToSensorLabel" x="780" y="505" text-anchor="middle" fill="#ff9900" font-size="10" font-weight="700" opacity="0">Motion</text>
+
+          <line id="sensorToPLCArrow" x1="960" y1="420" x2="960" y2="360" stroke="#5bb8ff" stroke-width="2.5" stroke-dasharray="20,10" class="arrow-animated" opacity="0" marker-end="url(#arrowBlue)"></line>
+          <text id="sensorToPLCLabel" x="1005" y="390" text-anchor="middle" fill="#5bb8ff" font-size="10" font-weight="700" opacity="0">Feedback</text>
+
+          <line id="sensorToPLCReturn" x1="960" y1="360" x2="1005" y2="340" stroke="#5bb8ff" stroke-width="2.5" stroke-dasharray="20,10" class="arrow-animated" opacity="0" marker-end="url(#arrowBlue)"></line>
+
+          <line id="motorToDriveReturn" x1="530" y1="510" x2="320" y2="510" stroke="#3ad67d" stroke-width="2.5" stroke-dasharray="20,10" class="arrow-animated" opacity="0" marker-end="url(#arrowGreen)"></line>
+          <text id="motorToDriveLabel" x="425" y="525" text-anchor="middle" fill="#3ad67d" font-size="10" font-weight="700" opacity="0">Status</text>
+
+          <text x="600" y="700" text-anchor="middle" fill="#8ad7ff" font-size="15" font-weight="700">
+            CONTROL PATH: HMI → STRATIX → PLC → DRIVE → MOTOR → SENSOR → PLC → HMI/SCADA
+          </text>
+        </svg>
+      </section>
+
+      <aside class="panel panel-right">
+        <div class="metrics">
+          <div class="metric">
+            <span class="label">Motor</span>
+            <span id="motorStatus" class="value status-stop">STOPPED</span>
+          </div>
+          <div class="metric">
+            <span class="label">Speed</span>
+            <span id="motorSpeed" class="value">0 RPM</span>
+          </div>
+          <div class="metric">
+            <span class="label">Temperature</span>
+            <span id="motorTemp" class="value">25°C</span>
+          </div>
+          <div class="metric">
+            <span class="label">Drive</span>
+            <span id="driveStatus" class="value status-idle">IDLE</span>
+          </div>
+          <div class="metric">
+            <span class="label">Network</span>
+            <span id="networkStatus" class="value status-ok">HEALTHY</span>
+          </div>
         </div>
 
-        <div class="right-sidebar">
-            <!-- Communication Flow Panel -->
-            <div class="info-panel">
-                <div class="panel-title">📊 COMMUNICATION FLOW</div>
-                <div id="flowSteps">
-                    <div class="flow-step" data-step="0">1. Operator presses START</div>
-                    <div class="flow-step" data-step="1">2. HMI sends command</div>
-                    <div class="flow-step" data-step="2">3. Stratix switches frame</div>
-                    <div class="flow-step" data-step="3">4. EtherNet/IP carries CIP</div>
-                    <div class="flow-step" data-step="4">5. PLC receives command</div>
-                    <div class="flow-step" data-step="5">6. PLC executes logic</div>
-                    <div class="flow-step" data-step="6">7. Drive receives command</div>
-                    <div class="flow-step" data-step="7">8. Motor starts</div>
-                    <div class="flow-step" data-step="8">9. Sensors provide feedback</div>
-                    <div class="flow-step" data-step="9">10. PLC receives feedback</div>
-                    <div class="flow-step" data-step="10">11. HMI/SCADA displays status</div>
-                </div>
-            </div>
-
-            <!-- Device Information Panel -->
-            <div class="info-panel">
-                <div class="panel-title">ℹ️ DEVICE INFORMATION</div>
-                <div id="deviceInfo">
-                    <div class="info-item"><strong>Motor Status:</strong> <span id="motorStatus">STOPPED</span></div>
-                    <div class="info-item"><strong>Speed:</strong> <span id="motorSpeed">0</span> RPM</div>
-                    <div class="info-item"><strong>Temperature:</strong> <span id="motorTemp">25</span>°C</div>
-                    <div class="info-item"><strong>Drive Status:</strong> <span id="driveStatus">IDLE</span></div>
-                    <div class="info-item"><strong>Network Status:</strong> <span id="networkStatus">HEALTHY</span></div>
-                </div>
-
-                <div class="tabs" id="infoTabs">
-                    <button class="tab-button active" onclick="switchTab('network-info')">Network</button>
-                    <button class="tab-button" onclick="switchTab('arp-info')">ARP</button>
-                    <button class="tab-button" onclick="switchTab('packet-info')">Packet</button>
-                </div>
-
-                <!-- Network Info Tab -->
-                <div class="tab-content active" id="network-info">
-                    <table class="network-table">
-                        <tr>
-                            <th>Device</th>
-                            <th>IP Address</th>
-                            <th>VLAN</th>
-                        </tr>
-                        <tr>
-                            <td>HMI</td>
-                            <td>192.168.10.11</td>
-                            <td>10</td>
-                        </tr>
-                        <tr>
-                            <td>Stratix</td>
-                            <td>192.168.10.1</td>
-                            <td>10</td>
-                        </tr>
-                        <tr>
-                            <td>PLC</td>
-                            <td>192.168.10.20</td>
-                            <td>10</td>
-                        </tr>
-                        <tr>
-                            <td>Drive</td>
-                            <td>192.168.10.30</td>
-                            <td>10</td>
-                        </tr>
-                        <tr>
-                            <td>Motor</td>
-                            <td>192.168.10.40</td>
-                            <td>10</td>
-                        </tr>
-                        <tr>
-                            <td>Sensor</td>
-                            <td>192.168.10.50</td>
-                            <td>10</td>
-                        </tr>
-                    </table>
-                    <div style="font-size: 0.85em; margin-top: 10px; color: #00aaff;">
-                        <strong>Network:</strong> 192.168.10.0/24<br>
-                        <strong>Gateway:</strong> 192.168.10.1<br>
-                        <strong>Subnet Mask:</strong> 255.255.255.0
-                    </div>
-                </div>
-
-                <!-- ARP Info Tab -->
-                <div class="tab-content" id="arp-info">
-                    <table class="network-table">
-                        <tr>
-                            <th>IP Address</th>
-                            <th>MAC Address</th>
-                        </tr>
-                        <tr>
-                            <td>192.168.10.11</td>
-                            <td>AA:AA:AA:AA:AA:11</td>
-                        </tr>
-                        <tr>
-                            <td>192.168.10.20</td>
-                            <td>AA:AA:AA:AA:AA:20</td>
-                        </tr>
-                        <tr>
-                            <td>192.168.10.30</td>
-                            <td>AA:AA:AA:AA:AA:30</td>
-                        </tr>
-                        <tr>
-                            <td>192.168.10.40</td>
-                            <td>AA:AA:AA:AA:AA:40</td>
-                        </tr>
-                        <tr>
-                            <td>192.168.10.50</td>
-                            <td>AA:AA:AA:AA:AA:50</td>
-                        </tr>
-                    </table>
-                    <div style="font-size: 0.85em; margin-top: 10px; color: #00ff88;">
-                        ARP resolves IP addresses to MAC addresses on the local network.
-                    </div>
-                </div>
-
-                <!-- Packet Info Tab -->
-                <div class="tab-content" id="packet-info">
-                    <div class="info-item"><strong>Source:</strong> HMI (192.168.10.11)</div>
-                    <div class="info-item"><strong>Destination:</strong> PLC (192.168.10.20)</div>
-                    <div class="info-item"><strong>Protocol:</strong> EtherNet/IP</div>
-                    <div class="info-item"><strong>Underlying:</strong> CIP</div>
-                    <div class="info-item"><strong>VLAN:</strong> 10 (Control)</div>
-                    <div class="info-item"><strong>Source MAC:</strong> AA:AA:AA:AA:AA:11</div>
-                    <div class="info-item"><strong>Dest MAC:</strong> AA:AA:AA:AA:AA:20</div>
-                    <div class="info-item"><strong>TCP Port:</strong> 44818</div>
-                    <div style="font-size: 0.85em; margin-top: 10px; color: #00ff88;">
-                        Ethernet frames carry CIP industrial communication via EtherNet/IP.
-                    </div>
-                </div>
-            </div>
-
-            <!-- Technical Concepts Panel -->
-            <div class="info-panel">
-                <div class="panel-title">🔧 TECHNICAL CONCEPTS</div>
-                
-                <div style="font-size: 0.9em; line-height: 1.6;">
-                    <strong style="color: #00ff88;">EtherNet/IP:</strong><br>
-                    Industrial networking that uses Ethernet + TCP/IP to carry CIP messages<br><br>
-                    
-                    <strong style="color: #00ff88;">CIP:</strong><br>
-                    Common Industrial Protocol for industrial devices<br><br>
-                    
-                    <strong style="color: #00ff88;">VLAN 10:</strong><br>
-                    Control network (PLC, HMI, Drives, I/O)<br><br>
-                    
-                    <strong style="color: #00ff88;">Layer 2 Switching:</strong><br>
-                    Switches forward frames using MAC addresses<br><br>
-                    
-                    <strong style="color: #00ff88;">Feedback:</strong><br>
-                    Status returns via blue animated arrows
-                </div>
-            </div>
+        <div class="section-title">Communication Flow</div>
+        <div id="flowBox" class="flow-box">
+          <div class="flow-step active">1. Operator presses START</div>
+          <div class="flow-step">2. HMI sends command</div>
+          <div class="flow-step">3. Stratix switches packet</div>
+          <div class="flow-step">4. EtherNet/IP carries CIP</div>
+          <div class="flow-step">5. PLC receives command</div>
+          <div class="flow-step">6. PLC executes logic</div>
+          <div class="flow-step">7. Drive receives command</div>
+          <div class="flow-step">8. Motor starts</div>
+          <div class="flow-step">9. Sensors provide feedback</div>
+          <div class="flow-step">10. PLC receives feedback</div>
+          <div class="flow-step">11. HMI/SCADA shows RUNNING</div>
         </div>
-    </div>
 
-    <div class="tooltip" id="tooltip"></div>
+        <div class="section-title">Message Log</div>
+        <div id="messageBox" class="log-box">
+          <div class="log-item success">System ready. Press START MOTOR to begin.</div>
+        </div>
 
-    <script>
-        // ============================================
-        // SIMULATION STATE MANAGEMENT
-        // ============================================
-        const simulationState = {
-            isRunning: false,
-            motorRunning: false,
-            motorSpeed: 0,
-            motorTemp: 25,
-            driveStatus: 'IDLE',
-            networkStatus: 'HEALTHY',
-            hasFault: false,
-            faultType: null,
-            currentStep: -1,
-            interviewMode: false
-        };
+        <div class="section-title">Network Details</div>
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="networkTab">Network</button>
+          <button class="tab-btn" data-tab="arpTab">ARP</button>
+          <button class="tab-btn" data-tab="packetTab">Packet</button>
+        </div>
 
-        const devices = {
-            hmi: { x: 140, y: 190, name: 'HMI', ip: '192.168.10.11', mac: 'AA:AA:AA:AA:AA:11' },
-            stratix: { x: 440, y: 190, name: 'STRATIX', ip: '192.168.10.1', mac: 'AA:AA:AA:AA:AA:01' },
-            plc: { x: 740, y: 190, name: 'PLC', ip: '192.168.10.20', mac: 'AA:AA:AA:AA:AA:20' },
-            drive: { x: 140, y: 360, name: 'DRIVE', ip: '192.168.10.30', mac: 'AA:AA:AA:AA:AA:30' },
-            motor: { x: 440, y: 360, name: 'MOTOR', ip: '192.168.10.40', mac: 'AA:AA:AA:AA:AA:40' },
-            sensor: { x: 740, y: 360, name: 'SENSOR', ip: '192.168.10.50', mac: 'AA:AA:AA:AA:AA:50' }
-        };
+        <div id="networkTab" class="tab-content active">
+          <table>
+            <thead><tr><th>Device</th><th>IP</th><th>VLAN</th></tr></thead>
+            <tbody>
+              <tr><td>HMI</td><td>192.168.10.11</td><td>10</td></tr>
+              <tr><td>PLC</td><td>192.168.10.20</td><td>10</td></tr>
+              <tr><td>Drive</td><td>192.168.10.30</td><td>10</td></tr>
+              <tr><td>Motor</td><td>192.168.10.40</td><td>10</td></tr>
+              <tr><td>Sensor</td><td>192.168.10.50</td><td>10</td></tr>
+            </tbody>
+          </table>
+          <p>Network: 192.168.10.0/24</p>
+          <p>Broadcast: 192.168.10.255</p>
+          <p>Default Gateway: 192.168.10.1</p>
+        </div>
 
-        const communicationPath = [
-            { from: 'hmi', to: 'stratix', type: 'control', delay: 500, label: 'HMI sends command' },
-            { from: 'stratix', to: 'plc', type: 'control', delay: 500, label: 'Stratix forwards' },
-            { from: 'plc', to: 'drive', type: 'control', delay: 500, label: 'PLC commands Drive' },
-            { from: 'drive', to: 'motor', type: 'control', delay: 500, label: 'Drive starts motor' },
-            { from: 'motor', to: 'sensor', type: 'feedback', delay: 500, label: 'Motor sends feedback' },
-            { from: 'sensor', to: 'plc', type: 'feedback', delay: 500, label: 'Sensor feedback to PLC' },
-            { from: 'plc', to: 'stratix', type: 'feedback', delay: 500, label: 'PLC to Stratix' },
-            { from: 'stratix', to: 'hmi', type: 'feedback', delay: 500, label: 'Status to HMI' }
-        ];
+        <div id="arpTab" class="tab-content">
+          <table>
+            <thead><tr><th>IP</th><th>MAC</th></tr></thead>
+            <tbody>
+              <tr><td>192.168.10.11</td><td>AA:AA:AA:AA:AA:11</td></tr>
+              <tr><td>192.168.10.20</td><td>AA:AA:AA:AA:AA:20</td></tr>
+              <tr><td>192.168.10.30</td><td>AA:AA:AA:AA:AA:30</td></tr>
+            </tbody>
+          </table>
+          <p>ARP resolves IPv4 addresses to MAC addresses on the local network.</p>
+        </div>
 
-        // ============================================
-        // LOGGING SYSTEM
-        // ============================================
-        function addLog(message, type = 'info') {
-            const logDiv = document.getElementById('messageLog');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = type;
-            msgDiv.innerHTML = `<span class="spinner"></span>${message}`;
-            logDiv.appendChild(msgDiv);
-            logDiv.scrollTop = logDiv.scrollHeight;
+        <div id="packetTab" class="tab-content">
+          <p><strong>Source:</strong> HMI (192.168.10.11)</p>
+          <p><strong>Destination:</strong> PLC (192.168.10.20)</p>
+          <p><strong>Protocol:</strong> EtherNet/IP</p>
+          <p><strong>Underlying:</strong> CIP</p>
+          <p><strong>VLAN:</strong> 10</p>
+          <p><strong>MAC Source:</strong> AA:AA:AA:AA:AA:11</p>
+          <p><strong>MAC Dest:</strong> AA:AA:AA:AA:AA:20</p>
+        </div>
 
-            // Keep only last 20 messages
-            while (logDiv.children.length > 20) {
-                logDiv.removeChild(logDiv.firstChild);
-            }
+        <div class="section-title">Selected Device</div>
+        <div id="deviceCard" class="device-card">
+          <h3>PLC</h3>
+          <p><strong>IP:</strong> 192.168.10.20</p>
+          <p><strong>VLAN:</strong> 10</p>
+          <p><strong>MAC:</strong> AA:AA:AA:AA:AA:20</p>
+          <p><strong>Role:</strong> Logic controller</p>
+          <p>Receives commands, executes logic, and decides when to start or stop the process.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      running: false,
+      motorStatus: 'STOPPED',
+      speed: 0,
+      temp: 25,
+      driveStatus: 'IDLE',
+      networkStatus: 'HEALTHY',
+      stepIndex: 0,
+      faultMode: false
+    };
+
+    const deviceInfo = {
+      hmi: { name: 'HMI', ip: '192.168.10.11', vlan: '10', mac: 'AA:AA:AA:AA:AA:11', role: 'Operator interface', description: 'Touch screen allows the operator to monitor machine status and initiate start/stop commands.' },
+      switch: { name: 'Stratix Industrial Switch', ip: '192.168.10.1', vlan: '10', mac: 'AA:AA:AA:AA:AA:01', role: 'Industrial managed switch', description: 'Forwards Ethernet frames using MAC addresses and maintains VLAN segmentation for real-time control.' },
+      plc: { name: 'CompactLogix PLC', ip: '192.168.10.20', vlan: '10', mac: 'AA:AA:AA:AA:AA:20', role: 'Logic controller', description: 'Receives commands from HMI, executes logic, and controls the drive and motor.' },
+      drive: { name: 'PowerFlex Drive', ip: '192.168.10.30', vlan: '10', mac: 'AA:AA:AA:AA:AA:30', role: 'Motor control', description: 'Converts PLC commands into precise motor speed and direction control with protection.' },
+      motor: { name: 'Three-Phase Motor', ip: '192.168.10.40', vlan: '10', mac: 'AA:AA:AA:AA:AA:40', role: 'Actuator', description: 'Converts electrical command into rotational motion. Belt-driven loads increase mechanical efficiency.' },
+      sensor: { name: 'Encoder + RTD Sensor', ip: '192.168.10.50', vlan: '10', mac: 'AA:AA:AA:AA:AA:50', role: 'Feedback device', description: 'Measures motor speed via encoder and temperature via RTD, providing feedback over a 24V hardwired line.' }
+    };
+
+    const flowSteps = [...document.querySelectorAll('.flow-step')];
+    const messageBox = document.getElementById('messageBox');
+    const deviceCard = document.getElementById('deviceCard');
+    const beltPackets = document.getElementById('beltPackets');
+
+    function updateDeviceCard(deviceKey) {
+      const info = deviceInfo[deviceKey];
+      if (!info) return;
+      deviceCard.innerHTML = `
+        <h3>${info.name}</h3>
+        <p><strong>IP:</strong> ${info.ip}</p>
+        <p><strong>VLAN:</strong> ${info.vlan}</p>
+        <p><strong>MAC:</strong> ${info.mac}</p>
+        <p><strong>Role:</strong> ${info.role}</p>
+        <p>${info.description}</p>
+      `;
+    }
+
+    function updateFactoryTalkStatus() {
+      const element = document.getElementById('factoryTalkStatus');
+      if (state.motorStatus === 'RUNNING') {
+        element.textContent = `MOTOR: RUNNING at ${state.speed} RPM | TEMP: ${state.temp}°C`;
+        element.setAttribute('fill', '#3ad67d');
+      } else if (state.driveStatus === 'FAULT') {
+        element.textContent = 'ALARM: Drive Fault - Overtemperature';
+        element.setAttribute('fill', '#ff6060');
+      } else {
+        element.textContent = 'MOTOR: STOPPED';
+        element.setAttribute('fill', '#ffb13d');
+      }
+    }
+
+    function logMessage(text, kind = 'success') {
+      const row = document.createElement('div');
+      row.className = 'log-item ' + kind;
+      row.textContent = text;
+      messageBox.prepend(row);
+
+      while (messageBox.children.length > 10) {
+        messageBox.removeChild(messageBox.lastChild);
+      }
+    }
+
+    function setFlow(step) {
+      flowSteps.forEach((item, index) => {
+        item.classList.remove('active', 'done');
+        if (index < step) item.classList.add('done');
+        if (index === step) item.classList.add('active');
+      });
+    }
+
+    function updateStatusPanel() {
+      const motorStatusEl = document.getElementById('motorStatus');
+      const driveStatusEl = document.getElementById('driveStatus');
+      const networkStatusEl = document.getElementById('networkStatus');
+      const motorStatusText = document.getElementById('motorStatusText');
+
+      motorStatusEl.textContent = state.motorStatus;
+      motorStatusEl.className = 'value ' + (state.motorStatus === 'RUNNING' ? 'status-ok' : 'status-stop');
+      motorStatusText.textContent = state.motorStatus;
+
+      document.getElementById('motorSpeed').textContent = state.speed + ' RPM';
+      document.getElementById('motorTemp').textContent = state.temp + '°C';
+
+      driveStatusEl.textContent = state.driveStatus;
+      driveStatusEl.className = 'value ' + (
+        state.driveStatus === 'RUN' ? 'status-ok' :
+        state.driveStatus === 'FAULT' ? 'status-fault' :
+        'status-idle'
+      );
+
+      networkStatusEl.textContent = state.networkStatus;
+      networkStatusEl.className = 'value ' + (state.networkStatus === 'HEALTHY' ? 'status-ok' : 'status-fault');
+
+      if (state.motorStatus === 'RUNNING') {
+        beltPackets.style.animationPlayState = 'running';
+        motorStatusText.setAttribute('fill', '#3ad67d');
+      } else {
+        beltPackets.style.animationPlayState = 'paused';
+        motorStatusText.setAttribute('fill', '#ffb13d');
+      }
+
+      updateFactoryTalkStatus();
+    }
+
+    function showArrows() {
+      document.getElementById('driveToMotorArrow').setAttribute('opacity', '1');
+      document.getElementById('driveToMotorLabel').setAttribute('opacity', '1');
+      document.getElementById('motorToSensorArrow').setAttribute('opacity', '1');
+      document.getElementById('motorToSensorLabel').setAttribute('opacity', '1');
+      document.getElementById('sensorToPLCArrow').setAttribute('opacity', '1');
+      document.getElementById('sensorToPLCLabel').setAttribute('opacity', '1');
+      document.getElementById('sensorToPLCReturn').setAttribute('opacity', '1');
+      document.getElementById('motorToDriveReturn').setAttribute('opacity', '1');
+      document.getElementById('motorToDriveLabel').setAttribute('opacity', '1');
+    }
+
+    function hideArrows() {
+      document.getElementById('driveToMotorArrow').setAttribute('opacity', '0');
+      document.getElementById('driveToMotorLabel').setAttribute('opacity', '0');
+      document.getElementById('motorToSensorArrow').setAttribute('opacity', '0');
+      document.getElementById('motorToSensorLabel').setAttribute('opacity', '0');
+      document.getElementById('sensorToPLCArrow').setAttribute('opacity', '0');
+      document.getElementById('sensorToPLCLabel').setAttribute('opacity', '0');
+      document.getElementById('sensorToPLCReturn').setAttribute('opacity', '0');
+      document.getElementById('motorToDriveReturn').setAttribute('opacity', '0');
+      document.getElementById('motorToDriveLabel').setAttribute('opacity', '0');
+    }
+
+    function setActiveBoxes(activeList) {
+      const boxes = document.querySelectorAll('.device-box');
+      boxes.forEach(el => el.classList.remove('active'));
+      activeList.forEach(id => {
+        const el = document.querySelector(`[data-device="${id}"] .device-box`);
+        if (el) el.classList.add('active');
+      });
+    }
+
+    const stepSequence = [
+      { label: 'Operator pressed START on HMI screen.', step: 0, active: ['hmi'] },
+      { label: 'HMI sends EtherNet/IP command to Stratix Switch.', step: 1, active: ['hmi','switch','plc'] },
+      { label: 'Stratix switches Ethernet frame based on MAC address.', step: 2, active: ['switch','plc'] },
+      { label: 'PLC received START command. Executing logic.', step: 3, active: ['plc'] },
+      { label: 'PLC sends control signal to PowerFlex Drive.', step: 4, active: ['plc','drive'], arrows: true },
+      { label: 'Drive energizes motor via 3-phase power.', step: 5, active: ['drive','motor'], arrows: true },
+      { label: 'Motor accelerates. Belt-driven load spinning.', step: 6, active: ['motor'], arrows: true },
+      { label: 'Encoder detects motor speed. RTD measures temperature.', step: 7, active: ['motor','sensor'], arrows: true },
+      { label: 'Sensor sends 24V feedback signal to PLC.', step: 8, active: ['sensor','plc'], arrows: true },
+      { label: 'PLC updates FactoryTalk/SCADA with real-time status.', step: 9, active: ['plc','hmi'], arrows: true }
+    ];
+
+    async function handleStart() {
+      if (state.running) return;
+      state.running = true;
+      state.motorStatus = 'RUNNING';
+      state.driveStatus = 'RUN';
+      state.networkStatus = 'HEALTHY';
+      state.speed = 0;
+      state.temp = 25;
+      setFlow(0);
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+
+      logMessage('Operator pressed START on HMI screen.', 'success');
+      updateStatusPanel();
+
+      for (let i = 0; i < stepSequence.length; i++) {
+        const item = stepSequence[i];
+        setFlow(item.step);
+        setActiveBoxes(item.active);
+
+        if (item.arrows) {
+          showArrows();
+        } else {
+          hideArrows();
         }
 
-        // ============================================
-        // ANIMATION SYSTEM
-        // ============================================
-        function animatePacket(fromDevice, toDevice, type = 'control') {
-            const svg = document.getElementById('networkDiagram');
-            const from = devices[fromDevice];
-            const to = devices[toDevice];
+        logMessage(item.label, 'success');
+        await new Promise(r => setTimeout(r, 700));
+      }
 
-            // Create packet element
-            const packet = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            packet.setAttribute('cx', from.x);
-            packet.setAttribute('cy', from.y);
-            packet.setAttribute('r', 4);
-            packet.setAttribute('class', `packet ${type}`);
-            packet.setAttribute('filter', 'url(#glow)');
-            svg.appendChild(packet);
+      for (let value = 0; value <= 1000; value += 100) {
+        state.speed = value;
+        state.temp = 25 + Math.round(value / 100);
+        updateStatusPanel();
+        await new Promise(r => setTimeout(r, 120));
+      }
 
-            // Animate
-            const duration = 800;
-            const startTime = Date.now();
+      state.speed = 1000;
+      state.temp = 35;
+      state.motorStatus = 'RUNNING';
+      state.driveStatus = 'RUN';
+      state.networkStatus = 'HEALTHY';
+      updateStatusPanel();
 
-            function animate() {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
+      setFlow(10);
+      logMessage('Real-time status updated. Motor is RUNNING at 1000 RPM. Belt-driven load in motion.', 'success');
 
-                const x = from.x + (to.x - from.x) * progress;
-                const y = from.y + (to.y - from.y) * progress;
+      showArrows();
+      state.running = false;
+      document.getElementById('startBtn').disabled = false;
+      setActiveBoxes(['hmi','switch','plc','drive','motor','sensor']);
+    }
 
-                packet.setAttribute('cx', x);
-                packet.setAttribute('cy', y);
+    function handleStop() {
+      if (state.running) return;
+      state.motorStatus = 'STOPPED';
+      state.driveStatus = 'IDLE';
+      state.speed = 0;
+      state.temp = 25;
+      hideArrows();
+      updateStatusPanel();
+      logMessage('STOP command sent to drive. Motor decelerating and stopping.', 'warn');
+      setActiveBoxes(['hmi','switch','plc','drive']);
+    }
 
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    packet.remove();
-                }
-            }
+    function handleFault() {
+      state.motorStatus = 'STOPPED';
+      state.driveStatus = 'FAULT';
+      state.networkStatus = 'FAULT';
+      state.speed = 0;
+      state.temp = 75;
+      updateStatusPanel();
 
-            animate();
+      logMessage('Drive fault: Overtemperature. Emergency stop activated. HMI shows CRITICAL ALARM.', 'error');
+      setActiveBoxes(['drive','plc','hmi']);
+      hideArrows();
+    }
+
+    function handleReset() {
+      state.running = false;
+      state.motorStatus = 'STOPPED';
+      state.speed = 0;
+      state.temp = 25;
+      state.driveStatus = 'IDLE';
+      state.networkStatus = 'HEALTHY';
+      state.faultMode = false;
+      hideArrows();
+      updateStatusPanel();
+      setFlow(0);
+      setActiveBoxes([]);
+      logMessage('System reset. All devices ready. Press START MOTOR to begin.', 'success');
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = false;
+    }
+
+    document.getElementById('startBtn').addEventListener('click', handleStart);
+    document.getElementById('stopBtn').addEventListener('click', handleStop);
+    document.getElementById('faultBtn').addEventListener('click', handleFault);
+    document.getElementById('resetBtn').addEventListener('click', handleReset);
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(btn.dataset.tab);
+        if (target) target.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.device-group').forEach(group => {
+      group.addEventListener('click', () => {
+        const key = group.dataset.device;
+        if (key && deviceInfo[key]) {
+          updateDeviceCard(key);
+          setActiveBoxes([key]);
         }
+      });
+    });
 
-        function highlightDevice(deviceId, active = true) {
-            const device = document.getElementById(`${deviceId}-device`);
-            const statusCircle = document.getElementById(`${deviceId}-status`);
-
-            if (active) {
-                device.querySelector('.device-box').classList.add('active');
-                device.querySelectorAll('.device-label').forEach(el => el.classList.add('active'));
-                statusCircle.setAttribute('fill', '#00ff88');
-            } else {
-                device.querySelector('.device-box').classList.remove('active');
-                device.querySelectorAll('.device-label').forEach(el => el.classList.remove('active'));
-                statusCircle.setAttribute('fill', '#ff6600');
-            }
-        }
-
-        // ============================================
-        // STEP ANIMATION
-        // ============================================
-        async function executeStep(stepIndex) {
-            if (stepIndex >= communicationPath.length) return;
-
-            const step = communicationPath[stepIndex];
-            const flowSteps = document.querySelectorAll('.flow-step');
-            
-            // Update flow display
-            flowSteps.forEach((el, idx) => {
-                el.classList.remove('active', 'completed');
-                if (idx < stepIndex) el.classList.add('completed');
-                if (idx === stepIndex) el.classList.add('active');
-            });
-
-            // Highlight devices
-            highlightDevice(step.from, true);
-            await new Promise(r => setTimeout(r, 200));
-
-            // Animate packet
-            animatePacket(step.from, step.to, step.type);
-            addLog(step.label);
-
-            await new Promise(r => setTimeout(r, step.delay));
-
-            highlightDevice(step.from, false);
-            highlightDevice(step.to, true);
-
-            await new Promise(r => setTimeout(r, 300));
-        }
-
-        // ============================================
-        // MOTOR CONTROL
-        // ============================================
-        async function startMotor() {
-            if (simulationState.isRunning) return;
-
-            simulationState.isRunning = true;
-            simulationState.motorRunning = true;
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('stopBtn').disabled = false;
-
-            addLog('🟢 OPERATOR PRESSED START BUTTON');
-            addLog('HMI sending START command...');
-
-            // Step through communication path
-            for (let i = 0; i < communicationPath.length; i++) {
-                if (!simulationState.motorRunning) break;
-                await executeStep(i);
-            }
-
-            // Update status
-            if (simulationState.motorRunning) {
-                simulationState.driveStatus = 'RUN';
-                updateDeviceInfo();
-                
-                // Gradually increase speed
-                let speed = 0;
-                let temp = 25;
-                while (speed < 1500 && simulationState.motorRunning) {
-                    speed += 100;
-                    temp = Math.min(temp + 2, 50);
-                    simulationState.motorSpeed = speed;
-                    simulationState.motorTemp = temp;
-                    updateDeviceInfo();
-
-                    const motorIndicator = document.getElementById('motor-indicator');
-                    motorIndicator.setAttribute('fill', `hsl(${120 - (speed/1500)*40}, 100%, 50%)`);
-
-                    await new Promise(r => setTimeout(r, 200));
-                }
-
-                simulationState.motorSpeed = 1500;
-                simulationState.motorTemp = 50;
-                updateDeviceInfo();
-
-                addLog('✅ MOTOR RUNNING AT 1500 RPM');
-                addLog('✅ REAL-TIME STATUS UPDATED ON HMI/SCADA');
-            }
-
-            simulationState.isRunning = false;
-        }
-
-        async function stopMotor() {
-            if (!simulationState.motorRunning) return;
-
-            addLog('⏹ OPERATOR PRESSED STOP BUTTON');
-            simulationState.motorRunning = false;
-
-            // Gradually decrease speed
-            while (simulationState.motorSpeed > 0) {
-                simulationState.motorSpeed = Math.max(simulationState.motorSpeed - 150, 0);
-                simulationState.motorTemp = Math.max(simulationState.motorTemp - 1, 25);
-                updateDeviceInfo();
-
-                const motorIndicator = document.getElementById('motor-indicator');
-                if (simulationState.motorSpeed === 0) {
-                    motorIndicator.setAttribute('fill', '#ff6600');
-                }
-
-                await new Promise(r => setTimeout(r, 200));
-            }
-
-            simulationState.driveStatus = 'IDLE';
-            addLog('✅ MOTOR STOPPED');
-            updateDeviceInfo();
-
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = true;
-        }
-
-        // ============================================
-        // FAULT INJECTION
-        // ============================================
-        function injectFault() {
-            if (simulationState.hasFault) return;
-
-            simulationState.hasFault = true;
-            const faults = ['overtemperature', 'connection_loss', 'power_failure'];
-            simulationState.faultType = faults[Math.floor(Math.random() * faults.length)];
-
-            addLog(`⚠ FAULT INJECTED: ${simulationState.faultType.toUpperCase()}`, 'error');
-            simulationState.driveStatus = 'FAULT';
-            simulationState.networkStatus = 'ERROR';
-            updateDeviceInfo();
-
-            // Highlight drive as faulty
-            const driveBox = document.getElementById('drive-device').querySelector('.device-box');
-            driveBox.setAttribute('stroke', '#ff4444');
-            driveBox.setAttribute('stroke-width', '3');
-
-            stopMotor();
-        }
-
-        function resetSimulation() {
-            simulationState.isRunning = false;
-            simulationState.motorRunning = false;
-            simulationState.motorSpeed = 0;
-            simulationState.motorTemp = 25;
-            simulationState.driveStatus = 'IDLE';
-            simulationState.networkStatus = 'HEALTHY';
-            simulationState.hasFault = false;
-            simulationState.faultType = null;
-
-            // Clear highlights
-            Object.keys(devices).forEach(key => highlightDevice(key, false));
-
-            // Reset flow steps
-            document.querySelectorAll('.flow-step').forEach(el => {
-                el.classList.remove('active', 'completed');
-            });
-
-            // Reset drive color
-            const driveBox = document.getElementById('drive-device').querySelector('.device-box');
-            driveBox.setAttribute('stroke', '#00d4ff');
-            driveBox.setAttribute('stroke-width', '2');
-
-            // Reset motor indicator
-            document.getElementById('motor-indicator').setAttribute('fill', '#ff6600');
-
-            updateDeviceInfo();
-            addLog('🔄 SIMULATION RESET');
-
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = true;
-        }
-
-        // ============================================
-        // UI UPDATES
-        // ============================================
-        function updateDeviceInfo() {
-            document.getElementById('motorStatus').innerHTML = 
-                simulationState.motorRunning ? 
-                '<span class="status-badge status-running">RUNNING</span>' : 
-                '<span class="status-badge status-stopped">STOPPED</span>';
-            
-            document.getElementById('motorSpeed').textContent = simulationState.motorSpeed;
-            document.getElementById('motorTemp').textContent = simulationState.motorTemp;
-            
-            document.getElementById('driveStatus').innerHTML = 
-                simulationState.driveStatus === 'FAULT' ?
-                '<span class="status-badge status-fault">FAULT</span>' :
-                (simulationState.driveStatus === 'RUN' ?
-                '<span class="status-badge status-running">RUNNING</span>' :
-                '<span class="status-badge status-idle">IDLE</span>');
-            
-            document.getElementById('networkStatus').innerHTML =
-                simulationState.networkStatus === 'ERROR' ?
-                '<span class="status-badge status-fault">ERROR</span>' :
-                '<span class="status-badge status-running">HEALTHY</span>';
-        }
-
-        function switchTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-
-            // Show selected tab
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        function toggleInterviewMode() {
-            simulationState.interviewMode = !simulationState.interviewMode;
-            const btn = document.getElementById('toggleInterviewBtn');
-            if (simulationState.interviewMode) {
-                btn.innerHTML = '📚 INTERVIEW MODE: ON';
-                addLog('📚 Interview mode enabled - showing explanations');
-            } else {
-                btn.innerHTML = '📚 INTERVIEW MODE';
-                addLog('Interview mode disabled');
-            }
-        }
-
-        // ============================================
-        // EVENT LISTENERS
-        // ============================================
-        document.getElementById('startBtn').addEventListener('click', startMotor);
-        document.getElementById('stopBtn').addEventListener('click', stopMotor);
-        document.getElementById('faultBtn').addEventListener('click', injectFault);
-        document.getElementById('resetBtn').addEventListener('click', resetSimulation);
-        document.getElementById('toggleInterviewBtn').addEventListener('click', toggleInterviewMode);
-
-        // Make devices clickable
-        Object.keys(devices).forEach(key => {
-            const element = document.getElementById(`${key}-device`);
-            element.addEventListener('click', () => {
-                const device = devices[key];
-                showDeviceInfo(key, device);
-            });
-            element.addEventListener('mouseover', (e) => {
-                showTooltip(e, device.ip);
-            });
-            element.addEventListener('mouseout', hideTooltip);
-        });
-
-        function showDeviceInfo(deviceKey, device) {
-            const info = document.getElementById('deviceInfo');
-            let html = `
-                <div class="info-item"><strong>${device.name}</strong></div>
-                <div class="info-item"><strong>IP:</strong> ${device.ip}</div>
-                <div class="info-item"><strong>MAC:</strong> ${device.mac}</div>
-                <div class="info-item"><strong>VLAN:</strong> 10 (Control)</div>
-                <div class="info-item"><strong>Status:</strong> `;
-
-            if (deviceKey === 'motor') {
-                html += simulationState.motorRunning ? 'RUNNING' : 'STOPPED';
-            } else if (deviceKey === 'drive') {
-                html += simulationState.driveStatus;
-            } else {
-                html += 'OPERATIONAL';
-            }
-
-            html += '</div>';
-            info.innerHTML = html;
-        }
-
-        function showTooltip(e, text) {
-            const tooltip = document.getElementById('tooltip');
-            tooltip.textContent = text;
-            tooltip.classList.add('visible');
-            tooltip.style.left = (e.clientX + 10) + 'px';
-            tooltip.style.top = (e.clientY + 10) + 'px';
-        }
-
-        function hideTooltip() {
-            document.getElementById('tooltip').classList.remove('visible');
-        }
-
-        // ============================================
-        // INITIALIZATION
-        // ============================================
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('stopBtn').disabled = true;
-            addLog('🟢 SYSTEM READY - Click START MOTOR to begin');
-            updateDeviceInfo();
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                if (!simulationState.motorRunning) {
-                    startMotor();
-                } else {
-                    stopMotor();
-                }
-            } else if (e.code === 'KeyR') {
-                resetSimulation();
-            }
-        });
-    </script>
+    document.getElementById('stopBtn').disabled = true;
+    updateStatusPanel();
+    updateDeviceCard('plc');
+  </script>
 </body>
 </html>
